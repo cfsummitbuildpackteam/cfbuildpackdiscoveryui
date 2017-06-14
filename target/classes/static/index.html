@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Cloud Foundry Build Pack Detector</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.8/angular.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.6/d3.min.js" charset="utf-8"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/nvd3/1.8.1/nv.d3.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/angular-nvd3/1.0.5/angular-nvd3.min.js"></script>
+</head>
+<body  ng-app="myApp" ng-controller="todoCtrl">
+
+<div class="jumbotron text-center">
+  <h1>Cloud Foundry BuildPack Detector</h1>
+  <p>All about your apps!</p> 
+</div>
+  
+<div class="container">
+  <div class="row" ng-repeat="bprow in buildpackSummaryForUI">
+    <div class="col-sm-4" style="margin-bottom:60px;" ng-repeat="bpcol in bprow">
+	  <div ng-if="bpcol.isValid">
+	  <img style="display: block;margin: auto;" ng-src="{{bpcol.imgurl}}" alt="..."/>
+	  <h2 style="text-align: center;">{{bpcol.name}}</h2>
+	  <h3 style="text-align: center;">{{bpcol.count}} Apps</h3>
+	  <h3 style="text-align: center;">{{bpcol.org}} Orgs</h3>
+      <h3 style="text-align: center;">{{bpcol.space}} Spaces</h3>
+      <p style="text-align: center;">Current Version</p>
+	  </div>
+    </div>
+  </div>
+</div>
+
+
+<script>
+var app = angular.module('myApp', []);
+var url = 'https://appname/api/buildpackstats';
+url = 'data/data.json';
+
+app.service('dataService', function($http) {
+    delete $http.defaults.headers.common['X-Requested-With'];
+    this.getData = function(callbackFunc) {
+        $http({
+            method: 'GET',
+            url: url
+        }).success(function(data){
+            // With the data succesfully returned, call our callback
+            callbackFunc(data);
+        }).error(function(){
+            alert("error");
+        });
+     }
+});
+
+app.controller('todoCtrl', function($scope, dataService) {
+    $scope.buildpackSummary = {};
+	$scope.buildpackSummaryForUI = [];
+	var mock = true;
+	
+	$scope.fnGetImage = function(buildpack){
+	    var imgurl = "";
+		switch(buildpack) {
+			case "staticfile_buildpack":  
+				imgurl = "img/static.png";
+				break;
+			case "java_buildpack":  
+				imgurl = "img/java.png";
+				break;        		
+			case "ruby_buildpack":  
+				imgurl = "img/ruby.png";
+				break;        		
+			case "nodejs_buildpack":  
+				imgurl = "img/node.png";
+				break;      		
+			case "python_buildpack":  
+				imgurl = "img/python.png";
+				break;      		
+			case "go_buildpack":  
+				imgurl = "img/go.jpeg";
+				break;          		
+			case "php_buildpack":  
+				imgurl = "img/php.png";
+				break;        		
+			case "binary_buildpack":  
+				imgurl = "img/binary.svg";
+				break;      		
+			case "dotnet_core_buildpack":  
+				imgurl = "img/net.png";
+				break; 		
+			default:
+				imgurl = "img/bp.png"
+		};
+		return imgurl;
+	};
+
+	$scope.fnRender= function(){
+	  for(var appname in $scope.buildpacks){
+	  if ($scope.buildpacks.hasOwnProperty(appname)) {
+	      var property = $scope.buildpacks[appname];
+	     if(typeof $scope.buildpackSummary[property.buildpack] === "undefined"){
+			$scope.buildpackSummary[property.buildpack] = { name : property.buildpack, org: 1, space: 1, orgs:[property.org], spaces: [property.space], count: 1, img : 'java.png', isValid:true, imgurl : $scope.fnGetImage(property.name)};
+		 }
+		 else{
+		   if($scope.buildpackSummary[property.buildpack].orgs.indexOf(property.org) < 0 ){
+		     $scope.buildpackSummary[property.buildpack].orgs.push(property.org);
+			 $scope.buildpackSummary[property.buildpack].org++;
+		   }
+		   
+		   if($scope.buildpackSummary[property.buildpack].spaces.indexOf(property.space) < 0 ){
+		     $scope.buildpackSummary[property.buildpack].spaces.push(property.space);
+			 $scope.buildpackSummary[property.buildpack].space++;
+		   }
+		   $scope.buildpackSummary[property.buildpack].count++;
+		 }
+	  }
+	}
+	
+	
+	var rowcount = 1;
+	var colcount = 0;
+	var maxcol = 3;
+	var currentRow = [];
+	for(var buildpackname in $scope.buildpackSummary){
+	  if ($scope.buildpackSummary.hasOwnProperty(buildpackname)) {
+	    var bldpack = $scope.buildpackSummary[buildpackname];
+		if(currentRow.length == maxcol){
+		  $scope.buildpackSummaryForUI.push(currentRow);
+		  currentRow = [];
+		}
+		currentRow.push(bldpack);
+	  }
+	}
+	if(currentRow.length == maxcol){
+		$scope.buildpackSummaryForUI.push(currentRow);
+	}
+	else{
+	
+	  var dummycols = maxcol - currentRow.length;
+	  var i = 0;
+		for(i = 0; i < dummycols; i++){
+			currentRow.push({isValid:false});
+		}
+		$scope.buildpackSummaryForUI.push(currentRow);
+	}
+	}
+	
+	
+	if(!mock){
+	 dataService.getData(function(dataResponse) {
+        $scope.buildpacks = dataResponse;
+		$scope.fnRender();
+     });
+	}else{
+	/*
+staticfile_buildpack    1          true      false    staticfile_buildpack-cached-v1.4.5.zip
+java_buildpack          2          true      false    java-buildpack-v3.16.zip
+ruby_buildpack          3          true      false    ruby_buildpack-cached-v1.6.37.zip
+nodejs_buildpack        4          true      false    nodejs_buildpack-cached-v1.5.32.zip
+python_buildpack        5          true      false    python_buildpack-cached-v1.5.18.zip
+go_buildpack            6          true      false    go_buildpack-cached-v1.8.1.zip
+php_buildpack           7          true      false    php_buildpack-cached-v4.3.31.zip
+binary_buildpack        8          true      false    binary_buildpack-cached-v1.0.11.zip
+dotnet_core_buildpack   9          true      false    dotnet-core_buildpack-cached-v1.0.15.zip
+
+	*/
+	    $scope.buildpacks = {
+							applicationId_1 : {name:'nodejs_buildpack', version: '2.3', org: 'MyOrg', space: 'mySpace', buildpack: 'NodeJS 1.3'},
+							applicationId_2 : {name:'java_buildpack', version: '2.3', org: 'MyOrg', space: 'mySpace', buildpack: 'Java 1.4'},
+							applicationId_3 : {name:'php_buildpack', version: '2.3', org: 'MyOrg', space: 'mySpace', buildpack: 'Php 1.3'},
+							applicationId_4 : {name:'python_buildpack', version: '2.3', org: 'MyOrg', space: 'mySpace', buildpack: 'Python 1.1'},
+							applicationId_5 : {name:'go_buildpack', version: '2.3', org: 'MyOrg', space: 'mySpace', buildpack: 'Go 2.1'},
+							applicationId_6 : {name:'dotnet Build Pack', version: '2.3', org: 'MyOrg', space: 'mySpace', buildpack: 'dotnet 1.3'},
+							applicationId_7 : {name:'ruby_buildpack', version: '2.3', org: 'MyOrg', space: 'mySpace', buildpack: 'Ruby 1.1'},
+							applicationId_8 : {name:'staticfile_buildpack', version: '2.3', org: 'MyOrg', space: 'mySpace', buildpack: 'Static 2.1'}
+						};
+		$scope.fnRender();
+	}
+	
+});
+
+
+
+
+
+</script>
+
+
+
+
+
+</body>
+</html>
